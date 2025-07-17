@@ -76,7 +76,7 @@ export const devinRouter = createTRPCRouter({
           status: devinSession.status,
           status_enum: devinSession.status_enum,
           hasStructuredOutput: !!devinSession.structured_output,
-          structuredOutputLength: devinSession.structured_output?.length || 0
+          structuredOutputLength: devinSession.structured_output?.length ?? 0
         });
 
         // Update session in database
@@ -125,7 +125,7 @@ export const devinRouter = createTRPCRouter({
           where: { sessionId: input.sessionId },
           data: {
             status: mappedStatus,
-            result: result as unknown as Prisma.InputJsonValue,
+            result: result as Prisma.InputJsonValue,
             confidenceScore,
             updatedAt: new Date(),
           },
@@ -175,6 +175,19 @@ export const devinRouter = createTRPCRouter({
           throw new Error("Analysis session not found");
         }
 
+        // Check if there's already a running resolution session
+        const existingResolutionSession = await db.devinSession.findFirst({
+          where: {
+            issueId: analysisSession.issue.id,
+            type: "resolution",
+            status: "running"
+          }
+        });
+
+        if (existingResolutionSession) {
+          return { sessionId: existingResolutionSession.sessionId, alreadyRunning: true };
+        }
+
         // Get the GitHub issue details first to get the issue number
         const [owner, repo] = analysisSession.issue.repository.split("/");
         if (!owner || !repo) {
@@ -204,7 +217,7 @@ export const devinRouter = createTRPCRouter({
           },
         });
 
-        return { sessionId: resolutionSessionId };
+        return { sessionId: resolutionSessionId, alreadyRunning: false };
       } catch (error) {
         console.error("Error resolving issue:", error);
         throw new Error("Failed to start resolution");

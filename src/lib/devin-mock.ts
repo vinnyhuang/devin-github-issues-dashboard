@@ -10,7 +10,7 @@ import type {
 interface MockSession {
   sessionId: string;
   status: "running" | "blocked" | "stopped";
-  result?: DevinAnalysisResult;
+  result?: DevinAnalysisResult | DevinResolutionResult;
   startTime: number;
   processingTimeMs: number;
 }
@@ -287,7 +287,7 @@ class MockDevinClient {
     // Extract repo info if available for realistic PR URL
     let pullRequestUrl;
     if (hasGithubReference) {
-      const repoMatch = prompt.match(/github\.com\/([^\/]+\/[^\/]+)/);
+      const repoMatch = /github\.com\/([^\/]+\/[^\/]+)/.exec(prompt);
       if (repoMatch) {
         pullRequestUrl = `https://github.com/${repoMatch[1]}/pull/${prNumber}`;
       }
@@ -388,7 +388,7 @@ Please analyze this issue thoroughly and provide only the structured JSON respon
 - Complexity: ${analysis.complexity}
 - Confidence Score: ${analysis.confidence_score}%
 - Strategy: ${analysis.strategy}
-- Scope Analysis: ${(analysis as any).scope_analysis || "See strategy for implementation details"}
+- Scope Analysis: ${analysis.scope_analysis ?? "See strategy for implementation details"}
 
 **Implementation Requirements:**
 
