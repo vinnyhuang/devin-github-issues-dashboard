@@ -44,3 +44,7 @@ yarn-error.log*
 
 # idea files
 .idea
+
+# claude code context file
+claude.md
+CLAUDE.md
