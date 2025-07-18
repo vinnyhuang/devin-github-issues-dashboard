@@ -98,6 +98,44 @@ export const githubRouter = createTRPCRouter({
       }
     }),
 
+  getSessions: publicProcedure
+    .input(z.object({ 
+      owner: z.string().min(1, "Owner is required"),
+      repo: z.string().min(1, "Repository name is required"),
+      issueNumber: z.number()
+    }))
+    .query(async ({ input }) => {
+      try {
+        // Get the GitHub issue to find the database issue
+        const githubIssue = await githubClient.getIssue(
+          input.owner,
+          input.repo,
+          input.issueNumber
+        );
+
+        // Find the issue in our database
+        const issue = await db.issue.findUnique({
+          where: { githubId: BigInt(githubIssue.id) }
+        });
+
+        if (!issue) {
+          return []; // No sessions if issue not found in database
+        }
+
+        // Get all sessions for this issue
+        const sessions = await db.devinSession.findMany({
+          where: { issueId: issue.id },
+          include: { issue: true },
+          orderBy: { createdAt: "desc" }
+        });
+
+        return sessions;
+      } catch (error) {
+        console.error("Error fetching sessions:", error);
+        throw new Error("Failed to fetch sessions");
+      }
+    }),
+
   getIssue: publicProcedure
     .input(z.object({ 
       owner: z.string().min(1, "Owner is required"),

@@ -9,6 +9,7 @@ interface UseSessionPollingParams {
 }
 
 export function useSessionPolling({ currentSession, onSessionUpdate }: UseSessionPollingParams) {
+  console.log("🔄 useSessionPolling", { currentSession });
   // Poll current session status to update database when sessions complete
   const sessionStatusQuery = api.devin.getSessionStatus.useQuery(
     { sessionId: currentSession?.session_id ?? "" },

@@ -17,7 +17,7 @@ export function Input({
   const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 w-full">
       {label && (
         <label 
           htmlFor={inputId} 
@@ -29,7 +29,7 @@ export function Input({
       <input
         id={inputId}
         className={`
-          flex-1 px-3 py-2 border border-gray-300 rounded-md 
+          w-full px-3 py-2 border border-gray-300 rounded-md 
           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
           disabled:bg-gray-100 disabled:cursor-not-allowed
           ${error ? "border-red-500 focus:ring-red-500 focus:border-red-500" : ""}

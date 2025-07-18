@@ -1,4 +1,4 @@
-import type { ConfidenceLevel, SessionStatus, TabType } from "@/lib/types";
+import type { ConfidenceLevel, TabType, DevinStatusEnum } from "@/lib/types";
 
 // UI Constants
 export const ISSUE_BODY_TRUNCATE_LENGTH = 140;
@@ -13,20 +13,28 @@ export const DEFAULT_REPO_URL = "https://github.com/vinnyhuang-devin-test/typio-
 export const DEMO_REPO_URL = "https://github.com/facebook/react";
 
 // Status Mappings
-export const STATUS_COLORS: Record<SessionStatus, string> = {
-  completed: "bg-green-100 text-green-700",
-  stopped: "bg-green-100 text-green-700",
-  blocked: "bg-green-100 text-green-700",
-  failed: "bg-red-100 text-red-700",
-  running: "bg-blue-100 text-blue-700",
+export const STATUS_COLORS: Record<DevinStatusEnum, string> = {
+  working: "bg-blue-100 text-blue-700",
+  blocked: "bg-yellow-100 text-yellow-700",
+  expired: "bg-red-100 text-red-700",
+  finished: "bg-green-100 text-green-700",
+  suspend_requested: "bg-orange-100 text-orange-700",
+  suspend_requested_frontend: "bg-orange-100 text-orange-700",
+  resume_requested: "bg-blue-100 text-blue-700",
+  resume_requested_frontend: "bg-blue-100 text-blue-700",
+  resumed: "bg-blue-100 text-blue-700",
 };
 
-export const STATUS_TEXT: Record<SessionStatus, string> = {
-  completed: "completed",
-  stopped: "completed",
-  blocked: "completed",
-  failed: "failed",
-  running: "running",
+export const STATUS_TEXT: Record<DevinStatusEnum, string> = {
+  working: "Working",
+  blocked: "Blocked",
+  expired: "Expired",
+  finished: "Finished",
+  suspend_requested: "Suspending",
+  suspend_requested_frontend: "Suspending",
+  resume_requested: "Resuming",
+  resume_requested_frontend: "Resuming",
+  resumed: "Resumed",
 };
 
 // Confidence Level Mappings

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { StatusBadge } from "@/components/ui";
-import { formatTimestamp, isSessionComplete } from "@/lib/utils";
+import { formatTimestamp, isDevinSessionComplete } from "@/lib/utils";
 import type { DatabaseSession } from "@/lib/types";
 
 interface HistoryTabProps {
@@ -50,7 +50,7 @@ export function HistoryTab({ sessions }: HistoryTabProps) {
             </span>
           </div>
           
-          {session.result && isSessionComplete(session.status) ? (
+          {session.result && isDevinSessionComplete(session.status) ? (
             <div className="mt-2">
               <button
                 onClick={() => toggleSessionExpansion(session.id)}

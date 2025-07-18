@@ -62,11 +62,11 @@ class DevinClient {
     while (attempts < maxAttempts) {
       const session = await this.getSession(sessionId);
       
-      if (session.status === "stopped") {
+      if (session.status_enum === "finished" || session.status_enum === "expired") {
         return session;
       }
       
-      if (session.status === "blocked") {
+      if (session.status_enum === "blocked") {
         throw new Error(`Session ${sessionId} is blocked: ${session.error_message ?? "Unknown error"}`);
       }
       

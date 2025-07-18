@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent, Input, Button } from "@/components/ui";
-import { DEFAULT_REPO_URL, DEMO_REPO_URL, IS_DEVELOPMENT, ERROR_MESSAGES } from "@/constants";
+import { DEFAULT_REPO_URL, ERROR_MESSAGES } from "@/constants";
 import { parseGitHubUrl, getErrorMessage } from "@/lib/utils";
 
 interface RepositoryConnectionProps {
@@ -37,16 +37,6 @@ export function RepositoryConnection({
     }
   };
 
-  const handleDemoConnect = async () => {
-    setRepoUrl(DEMO_REPO_URL);
-    // Allow state to update before connecting
-    setTimeout(() => {
-      const parsed = parseGitHubUrl(DEMO_REPO_URL);
-      if (parsed) {
-        onConnect(parsed.owner, parsed.repo);
-      }
-    }, 100);
-  };
 
   const getConnectionStatus = () => {
     if (!isConnected || !connectedRepo) {
@@ -68,7 +58,7 @@ export function RepositoryConnection({
       
       <CardContent>
         <div className="space-y-4">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-end space-x-4">
             <Input
               label="GitHub Repository URL"
               type="url"
@@ -79,25 +69,13 @@ export function RepositoryConnection({
               className="flex-1"
             />
             
-            <div className="flex space-x-2 pt-6">
-              <Button
-                onClick={handleConnect}
-                disabled={!repoUrl.trim() || isLoading}
-                isLoading={isLoading}
-              >
-                Connect
-              </Button>
-              
-              {IS_DEVELOPMENT && (
-                <Button
-                  variant="secondary"
-                  onClick={handleDemoConnect}
-                  disabled={isLoading}
-                >
-                  Demo
-                </Button>
-              )}
-            </div>
+            <Button
+              onClick={handleConnect}
+              disabled={!repoUrl.trim() || isLoading}
+              isLoading={isLoading}
+            >
+              Connect
+            </Button>
           </div>
 
           <div className="flex items-center space-x-2">

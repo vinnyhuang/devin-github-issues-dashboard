@@ -7,15 +7,13 @@ import { IssueDetailsPanel } from "../issues/IssueDetailsPanel";
 import { RepositoryConnection } from "./RepositoryConnection";
 import { IS_DEVELOPMENT, USE_MOCK_DEVIN } from "@/constants";
 import { getErrorMessage } from "@/lib/utils";
-import { useIssues, useSessions, useSessionPolling } from "@/hooks";
-import { api } from "@/trpc/react";
-import type { GitHubIssue, DevinSessionResponse } from "@/lib/types";
+import { useIssues } from "@/hooks";
+import { useSessionManager } from "@/hooks/useSessionManager";
+import type { GitHubIssue } from "@/lib/types";
 
 export function Dashboard() {
   const [repoConnection, setRepoConnection] = useState<{ owner: string; repo: string } | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [currentSession, setCurrentSession] = useState<DevinSessionResponse | null>(null);
-  const [analyzingIssueId, setAnalyzingIssueId] = useState<number | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<GitHubIssue | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
@@ -26,46 +24,12 @@ export function Dashboard() {
     enabled: isConnected
   });
 
-  const { allSessions, refetchSessions } = useSessions({
-    enabled: isConnected
+  // Session management
+  const sessionManager = useSessionManager({
+    issue: selectedIssue,
+    owner: repoConnection?.owner,
+    repo: repoConnection?.repo
   });
-
-  // tRPC mutations
-  const analyzeIssueMutation = api.devin.analyzeIssue.useMutation();
-
-  // Session polling
-  const handleSessionUpdate = useCallback((session: DevinSessionResponse) => {
-    console.log(`🔄 Dashboard: Updating session ${session.session_id}:`, {
-      status: session.status,
-      status_enum: session.status_enum,
-      hasResult: !!(session as unknown as { result?: unknown }).result
-    });
-    
-    setCurrentSession(session);
-    
-    // If session completed, refresh sessions after a brief delay
-    if (session.status === "stopped" || session.status === "blocked") {
-      console.log(`✅ Dashboard: Session ${session.session_id} completed, refreshing sessions in 1s`);
-      setTimeout(() => {
-        console.log(`🔄 Dashboard: Refreshing sessions after completion of ${session.session_id}`);
-        void refetchSessions();
-      }, 1000);
-    }
-  }, [refetchSessions]);
-
-  useSessionPolling({
-    currentSession,
-    onSessionUpdate: handleSessionUpdate
-  });
-
-  // Get sessions for selected issue
-  const selectedIssueSessions = React.useMemo(() => {
-    if (!allSessions || !selectedIssue) return [];
-    
-    return allSessions.filter(session => 
-      session.issue.githubId === BigInt(selectedIssue.id)
-    );
-  }, [allSessions, selectedIssue]);
 
   const handleConnectRepo = useCallback(async (owner: string, repo: string) => {
     try {
@@ -80,37 +44,6 @@ export function Dashboard() {
       setIsConnected(false);
     }
   }, []);
-
-  const handleAnalyzeIssue = useCallback(async (issue: GitHubIssue) => {
-    if (!repoConnection) return;
-    
-    try {
-      setAnalyzingIssueId(issue.id);
-      const result = await analyzeIssueMutation.mutateAsync({
-        owner: repoConnection.owner,
-        repo: repoConnection.repo,
-        issueNumber: issue.number,
-      });
-
-      if (result.alreadyRunning) {
-        // Could show a toast notification here instead
-        console.warn("Analysis is already running for this issue");
-        return;
-      }
-
-      // Set up session tracking
-      setCurrentSession({
-        session_id: result.sessionId,
-        status: "running",
-        status_enum: "working",
-      });
-    } catch (error) {
-      console.error("Error analyzing issue:", error);
-      // Could show error notification here
-    } finally {
-      setAnalyzingIssueId(null);
-    }
-  }, [repoConnection, analyzeIssueMutation]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -162,7 +95,14 @@ export function Dashboard() {
               <IssuesList
                 issues={issues}
                 selectedIssue={selectedIssue}
-                onSelectIssue={setSelectedIssue}
+                onSelectIssue={(issue) => {
+                  // Allow deselecting by clicking the same issue again
+                  if (selectedIssue?.id === issue.id) {
+                    setSelectedIssue(null);
+                  } else {
+                    setSelectedIssue(issue);
+                  }
+                }}
                 isLoading={issuesLoading}
               />
 
@@ -170,13 +110,20 @@ export function Dashboard() {
               {selectedIssue ? (
                 <IssueDetailsPanel
                   issue={selectedIssue}
-                  sessions={selectedIssueSessions as never}
-                  currentSession={currentSession}
-                  onAnalyzeIssue={handleAnalyzeIssue}
-                  onSessionUpdate={handleSessionUpdate}
-                  isAnalyzing={analyzeIssueMutation.isPending}
-                  analyzingIssueId={analyzingIssueId ?? undefined}
-                  onRefreshSessions={() => void refetchSessions()}
+                  sessions={sessionManager.sessions}
+                  latestAnalysis={sessionManager.latestAnalysis}
+                  latestResolution={sessionManager.latestResolution}
+                  currentAnalysisSession={sessionManager.currentAnalysisSession}
+                  currentResolutionSession={sessionManager.currentResolutionSession}
+                  onAnalyzeIssue={sessionManager.startAnalysis}
+                  onStartResolution={sessionManager.startResolution}
+                  onRetryResolution={sessionManager.retryResolution}
+                  isAnalyzing={sessionManager.isAnalyzing}
+                  isResolving={sessionManager.isResolving}
+                  analyzingIssueId={sessionManager.analyzingIssueId}
+                  resolvingIssueId={sessionManager.resolvingIssueId}
+                  errorMessage={sessionManager.errorMessage}
+                  onRefreshSessions={sessionManager.refreshSessions}
                 />
               ) : (
                 <Card>

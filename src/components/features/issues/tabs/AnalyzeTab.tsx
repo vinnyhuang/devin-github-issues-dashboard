@@ -1,6 +1,6 @@
 import React from "react";
 import { Button, StatusBadge, LoadingSpinner } from "@/components/ui";
-import { isAnalysisResult, formatTimestamp, isSessionComplete } from "@/lib/utils";
+import { isAnalysisResult, formatTimestamp, isDevinSessionComplete, isDevinSessionRunning } from "@/lib/utils";
 import { ISSUE_TYPE_CONFIG, COMPLEXITY_COLORS, getConfidenceLevel } from "@/constants";
 import type { GitHubIssue, DatabaseSession, DevinSessionResponse } from "@/lib/types";
 
@@ -12,6 +12,7 @@ interface AnalyzeTabProps {
   analyzingIssueId?: number;
   onAnalyzeIssue: (issue: GitHubIssue) => void;
   onRefreshSessions?: () => void;
+  onSwitchToResolve?: () => void;
 }
 
 export function AnalyzeTab({
@@ -21,9 +22,10 @@ export function AnalyzeTab({
   isAnalyzing,
   analyzingIssueId,
   onAnalyzeIssue,
-  onRefreshSessions
+  onRefreshSessions,
+  onSwitchToResolve
 }: AnalyzeTabProps) {
-  const hasCurrentRunningSession = currentSession?.status === "running";
+  const hasCurrentRunningSession = currentSession?.status_enum ? isDevinSessionRunning(currentSession.status_enum) : false;
   
   // If no analysis has been done and no current session, show initial state
   if (!latestAnalysis && !hasCurrentRunningSession) {
@@ -39,7 +41,7 @@ export function AnalyzeTab({
             onClick={() => onAnalyzeIssue(issue)}
             disabled={isAnalyzing}
             isLoading={isAnalyzing && analyzingIssueId === issue.id}
-            size="lg"
+            className="mb-8"
           >
             Analyze Issue
           </Button>
@@ -55,7 +57,7 @@ export function AnalyzeTab({
         <div className="flex items-center justify-between">
           <h4 className="font-medium text-gray-900">Current Analysis</h4>
           <div className="flex items-center gap-2">
-            <StatusBadge status="running" />
+            <StatusBadge status="working" />
             {onRefreshSessions && (
               <button
                 onClick={onRefreshSessions}
@@ -73,12 +75,12 @@ export function AnalyzeTab({
         </div>
 
         <LoadingSpinner 
-          size="lg" 
+          size="md" 
           text="Devin is examining the issue and generating insights" 
         />
 
         {/* Show previous analysis results if available */}
-        {latestAnalysis?.result && isSessionComplete(latestAnalysis.status) && isAnalysisResult(latestAnalysis.result) ? (
+        {latestAnalysis?.result && isDevinSessionComplete(latestAnalysis.status) && isAnalysisResult(latestAnalysis.result) ? (
           <div className="border-t pt-4">
             <h5 className="font-medium text-gray-700 mb-3">Previous Analysis</h5>
             <div className="bg-gray-50 p-3 rounded text-sm text-gray-600">
@@ -115,14 +117,14 @@ export function AnalyzeTab({
 
       <div className="text-sm text-gray-600 mb-4">
         <span>
-          {latestAnalysis.status === "running" 
+          {isDevinSessionRunning(latestAnalysis.status)
             ? `Started: ${formatTimestamp(latestAnalysis.createdAt)}`
             : `Completed: ${formatTimestamp(latestAnalysis.createdAt)}`
           }
         </span>
       </div>
 
-      {latestAnalysis.result && isSessionComplete(latestAnalysis.status) && isAnalysisResult(latestAnalysis.result) ? (
+      {latestAnalysis.result && isDevinSessionComplete(latestAnalysis.status) && isAnalysisResult(latestAnalysis.result) ? (
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1">
@@ -186,7 +188,7 @@ export function AnalyzeTab({
             </div>
           )}
         </div>
-      ) : latestAnalysis.status === "failed" ? (
+      ) : latestAnalysis.status === "expired" ? (
         <div className="space-y-4">
           <div className="bg-red-50 border border-red-200 rounded p-3">
             <p className="text-red-700 text-sm mb-2">
@@ -202,20 +204,29 @@ export function AnalyzeTab({
         </div>
       )}
 
-      <div className="flex gap-3 pt-4 border-t">
-        <Button
-          onClick={() => onAnalyzeIssue(issue)}
-          disabled={isAnalyzing}
-          isLoading={isAnalyzing && analyzingIssueId === issue.id}
-        >
-          Re-analyze
-        </Button>
-        
-        {latestAnalysis.result && isSessionComplete(latestAnalysis.status) ? (
-          <Button variant="success">
-            Resolve Issue
+      <div className="pt-4 border-t">
+        <div className="flex gap-3">
+          <Button
+            onClick={() => onAnalyzeIssue(issue)}
+            disabled={isAnalyzing}
+            isLoading={isAnalyzing && analyzingIssueId === issue.id}
+          >
+            Re-analyze
           </Button>
-        ) : null}
+          
+          {latestAnalysis.result && isDevinSessionComplete(latestAnalysis.status) ? (
+            <Button 
+              variant="success"
+              onClick={onSwitchToResolve}
+            >
+              Resolve Issue
+            </Button>
+          ) : null}
+        </div>
+        
+        <p className="text-xs text-gray-500 mt-2">
+          Re-analysis will only run if the issue contents have changed since the last analysis.
+        </p>
       </div>
     </div>
   );

@@ -38,7 +38,10 @@ class GitHubClient {
       direction: "desc",
     });
 
-    return data.map((issue) => ({
+    // Filter out pull requests - they have a pull_request property
+    const issuesOnly = data.filter((issue) => !issue.pull_request);
+    
+    return issuesOnly.map((issue) => ({
       ...issue,
       repository_url: `https://github.com/${owner}/${repo}`,
     })) as GitHubIssue[];

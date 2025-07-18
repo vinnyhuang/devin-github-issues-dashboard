@@ -2,14 +2,16 @@
 
 import React, { useState } from "react";
 import { Button, StatusBadge, LoadingSpinner } from "@/components/ui";
-import { isAnalysisResult, isResolutionResult, formatTimestamp, isSessionComplete } from "@/lib/utils";
+import { isAnalysisResult, isResolutionResult, formatTimestamp, isDevinSessionComplete, isDevinSessionRunning, generateResolutionPromptTemplate } from "@/lib/utils";
 import { getConfidenceLevel } from "@/constants";
 import type { 
   DatabaseSession, 
-  DevinAnalysisResult
+  DevinAnalysisResult,
+  GitHubIssue
 } from "@/lib/types";
 
 interface ResolveTabProps {
+  issue: GitHubIssue;
   latestAnalysis?: DatabaseSession;
   latestResolution?: DatabaseSession;
   onStartResolution: (analysisResult: DevinAnalysisResult) => Promise<void>;
@@ -19,6 +21,7 @@ interface ResolveTabProps {
 }
 
 export function ResolveTab({
+  issue,
   latestAnalysis,
   latestResolution,
   onStartResolution,
@@ -31,7 +34,7 @@ export function ResolveTab({
 
   // Check if Resolve tab should be enabled
   const canResolve = latestAnalysis && 
-    isSessionComplete(latestAnalysis.status) &&
+    isDevinSessionComplete(latestAnalysis.status) &&
     latestAnalysis.result &&
     isAnalysisResult(latestAnalysis.result);
 
@@ -43,10 +46,10 @@ export function ResolveTab({
           <div className="text-4xl mb-4">🔧</div>
           <h3 className="text-lg font-medium mb-2">Analysis Required</h3>
           <p>Complete a successful analysis before resolving this issue.</p>
-          {latestAnalysis?.status === "running" && (
+          {latestAnalysis?.status === "working" && (
             <p className="text-sm mt-2">Analysis is currently in progress...</p>
           )}
-          {latestAnalysis?.status === "failed" && (
+          {latestAnalysis?.status === "expired" && (
             <p className="text-sm mt-2 text-red-600">Previous analysis failed. Please re-analyze.</p>
           )}
         </div>
@@ -65,19 +68,19 @@ export function ResolveTab({
 
         <div className="text-sm text-gray-600 mb-4">
           <span>
-            {latestResolution.status === "running" 
+            {isDevinSessionRunning(latestResolution.status)
               ? `Started: ${formatTimestamp(latestResolution.createdAt)}`
               : `Completed: ${formatTimestamp(latestResolution.createdAt)}`
             }
           </span>
         </div>
 
-        {latestResolution.status === "running" ? (
+        {isDevinSessionRunning(latestResolution.status) ? (
           <LoadingSpinner 
-            size="lg" 
+            size="md" 
             text="Devin is working on resolving this issue" 
           />
-        ) : latestResolution.result && isSessionComplete(latestResolution.status) && isResolutionResult(latestResolution.result) ? (
+        ) : latestResolution.result && isDevinSessionComplete(latestResolution.status) && isResolutionResult(latestResolution.result) ? (
           <div className="space-y-4">
             <div>
               <div className="text-sm font-medium text-gray-700 mb-1">Implementation Summary</div>
@@ -109,14 +112,13 @@ export function ResolveTab({
               </p>
             </div>
           </div>
-        ) : latestResolution.status === "failed" ? (
+        ) : latestResolution.status === "expired" ? (
           <div className="bg-red-50 border border-red-200 rounded p-3">
             <p className="text-red-700 text-sm mb-2">
               <strong>❌ Resolution Failed:</strong> The resolution session encountered an error and could not complete.
             </p>
             <Button
               variant="danger"
-              size="sm"
               onClick={onRetryResolution}
               disabled={isResolving}
               isLoading={isResolving}
@@ -126,15 +128,21 @@ export function ResolveTab({
           </div>
         ) : null}
 
-        <div className="flex gap-3 pt-4 border-t">
-          <Button
-            variant="success"
-            onClick={() => latestAnalysis?.result && isAnalysisResult(latestAnalysis.result) && onStartResolution(latestAnalysis.result)}
-            disabled={isResolving || !latestAnalysis?.result || !isAnalysisResult(latestAnalysis.result)}
-            isLoading={isResolving}
-          >
-            Re-resolve
-          </Button>
+        <div className="pt-4 border-t">
+          <div className="flex gap-3">
+            <Button
+              variant="primary"
+              onClick={() => latestAnalysis?.result && isAnalysisResult(latestAnalysis.result) && onStartResolution(latestAnalysis.result)}
+              disabled={isResolving || !latestAnalysis?.result || !isAnalysisResult(latestAnalysis.result)}
+              isLoading={isResolving}
+            >
+              Re-resolve
+            </Button>
+          </div>
+          
+          <p className="text-xs text-gray-500 mt-2">
+            Re-resolution will only run if the resolution prompt has changed since the last attempt.
+          </p>
         </div>
       </div>
     );
@@ -187,7 +195,16 @@ export function ResolveTab({
               type="checkbox"
               id="customizePrompt"
               checked={customizePrompt}
-              onChange={(e) => setCustomizePrompt(e.target.checked)}
+              onChange={(e) => {
+                const isChecked = e.target.checked;
+                setCustomizePrompt(isChecked);
+                // Pre-populate with template when checkbox is checked
+                if (isChecked && latestAnalysis?.result && isAnalysisResult(latestAnalysis.result)) {
+                  setCustomPrompt(generateResolutionPromptTemplate(issue, latestAnalysis.result));
+                } else if (!isChecked) {
+                  setCustomPrompt("");
+                }
+              }}
               className="mr-2"
             />
             <label htmlFor="customizePrompt" className="text-sm font-medium text-gray-700">
@@ -216,7 +233,6 @@ export function ResolveTab({
               <p className="text-red-700 text-sm mb-2">{errorMessage}</p>
               <Button
                 variant="danger"
-                size="sm"
                 onClick={onRetryResolution}
               >
                 Retry
@@ -227,7 +243,6 @@ export function ResolveTab({
           <div className="flex gap-3">
             <Button
               variant="success"
-              size="lg"
               disabled={isResolving}
               isLoading={isResolving}
               onClick={() => onStartResolution(analysisResult)}
@@ -235,6 +250,10 @@ export function ResolveTab({
               Start Resolution
             </Button>
           </div>
+          
+          <p className="text-xs text-gray-500 mt-2">
+            Resolution will only run again if the prompt has changed from previous attempts.
+          </p>
         </div>
       </div>
     </div>

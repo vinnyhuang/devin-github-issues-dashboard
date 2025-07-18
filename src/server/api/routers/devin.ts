@@ -3,6 +3,7 @@ import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
 import { devinClientInstance as devinClient } from "@/lib/devin-factory";
 import { githubClient } from "@/lib/github";
 import { db } from "@/server/db";
+import { isDevinSessionComplete } from "@/lib/utils";
 import type { Prisma } from "@prisma/client";
 
 export const devinRouter = createTRPCRouter({
@@ -35,7 +36,7 @@ export const devinRouter = createTRPCRouter({
           where: {
             issueId: issue.id,
             type: "analysis",
-            status: "running"
+            status: "working"
           }
         });
 
@@ -46,13 +47,17 @@ export const devinRouter = createTRPCRouter({
         // Create new Devin analysis session
         const sessionId = await devinClient.analyzeIssue(githubIssue);
 
-        // Store session in database
-        await db.devinSession.create({
-          data: {
+        // Store session in database (use upsert to handle idempotent Devin responses)
+        await db.devinSession.upsert({
+          where: { sessionId },
+          update: { 
+            updatedAt: new Date() // Just update timestamp if session already exists
+          },
+          create: {
             sessionId,
             issueId: issue.id,
             type: "analysis",
-            status: "running",
+            status: "working",
           },
         });
 
@@ -76,8 +81,10 @@ export const devinRouter = createTRPCRouter({
           status: devinSession.status,
           status_enum: devinSession.status_enum,
           hasStructuredOutput: !!devinSession.structured_output,
-          structuredOutputLength: devinSession.structured_output?.length ?? 0
+          structuredOutputType: typeof devinSession.structured_output
         });
+
+        console.log("🔄 Devin Session Full:", devinSession);
 
         // Update session in database
         const dbSession = await db.devinSession.findUnique({
@@ -93,38 +100,36 @@ export const devinRouter = createTRPCRouter({
         let result = null;
         let confidenceScore = null;
 
-        // If session is complete, parse the structured output
-        if ((devinSession.status === "stopped" || devinSession.status === "blocked") && devinSession.structured_output) {
-          console.log(`📝 Parsing structured output for ${input.sessionId}:`, devinSession.structured_output.substring(0, 200) + "...");
-          try {
-            const parsedResult: unknown = JSON.parse(devinSession.structured_output);
-            
-            // Check if it's an analysis result or resolution result
-            if (devinClient.isValidAnalysisResult(parsedResult)) {
-              console.log(`✅ Valid analysis result parsed for ${input.sessionId}`);
-              result = parsedResult;
-              confidenceScore = parsedResult.confidence_score;
-            } else if (devinClient.isValidResolutionResult(parsedResult)) {
-              console.log(`✅ Valid resolution result parsed for ${input.sessionId}`);
-              result = parsedResult;
-            } else {
-              console.warn(`⚠️ Unrecognized result format for ${input.sessionId}:`, parsedResult);
-              result = parsedResult; // Store it anyway
-            }
-          } catch (parseError) {
-            console.error(`❌ Error parsing structured output for ${input.sessionId}:`, parseError);
+        // If session is complete, process the structured output
+        if (devinSession.status_enum && isDevinSessionComplete(devinSession.status_enum) && devinSession.structured_output) {
+          console.log(`📝 Processing structured output for ${input.sessionId}:`, devinSession.structured_output);
+          
+          // structured_output is already an object, no JSON parsing needed
+          const structuredResult: unknown = devinSession.structured_output;
+          
+          // Check if it's an analysis result or resolution result
+          if (devinClient.isValidAnalysisResult(structuredResult)) {
+            console.log(`✅ Valid analysis result found for ${input.sessionId}`);
+            result = structuredResult;
+            confidenceScore = structuredResult.confidence_score;
+          } else if (devinClient.isValidResolutionResult(structuredResult)) {
+            console.log(`✅ Valid resolution result found for ${input.sessionId}`);
+            result = structuredResult;
+          } else {
+            console.warn(`⚠️ Unrecognized result format for ${input.sessionId}:`, structuredResult);
+            result = structuredResult; // Store it anyway
           }
         }
 
-        // Map status: both "stopped" and "blocked" should be treated as completed
-        const mappedStatus = (devinSession.status === "stopped" || devinSession.status === "blocked") ? "completed" : "running";
-        console.log(`🔄 Updating database status for ${input.sessionId}: ${devinSession.status} → ${mappedStatus}`);
+        // Use status_enum directly in database, with fallback for null values
+        const sessionStatus = devinSession.status_enum ?? "working";
+        console.log(`🔄 Updating database status for ${input.sessionId}: ${sessionStatus} (original: ${devinSession.status_enum})`);
 
         // Update database with new status
         await db.devinSession.update({
           where: { sessionId: input.sessionId },
           data: {
-            status: mappedStatus,
+            status: sessionStatus,
             result: result as Prisma.InputJsonValue,
             confidenceScore,
             updatedAt: new Date(),
@@ -133,6 +138,7 @@ export const devinRouter = createTRPCRouter({
 
         const response = {
           ...devinSession,
+          status_enum: sessionStatus, // Use the normalized status
           result,
           confidenceScore,
           issue: dbSession.issue,
@@ -140,6 +146,7 @@ export const devinRouter = createTRPCRouter({
 
         console.log(`📤 Returning session status for ${input.sessionId}:`, {
           status: response.status,
+          status_enum: response.status_enum,
           hasResult: !!response.result,
           issueNumber: dbSession.issue.number
         });
@@ -180,7 +187,7 @@ export const devinRouter = createTRPCRouter({
           where: {
             issueId: analysisSession.issue.id,
             type: "resolution",
-            status: "running"
+            status: "working"
           }
         });
 
@@ -207,13 +214,17 @@ export const devinRouter = createTRPCRouter({
           input.analysisResult
         );
 
-        // Store resolution session in database
-        await db.devinSession.create({
-          data: {
+        // Store resolution session in database (use upsert to handle idempotent Devin responses)
+        await db.devinSession.upsert({
+          where: { sessionId: resolutionSessionId },
+          update: { 
+            updatedAt: new Date() // Just update timestamp if session already exists
+          },
+          create: {
             sessionId: resolutionSessionId,
             issueId: analysisSession.issue.id,
             type: "resolution",
-            status: "running",
+            status: "working",
           },
         });
 
@@ -281,8 +292,8 @@ export const devinRouter = createTRPCRouter({
         await db.devinSession.update({
           where: { sessionId: input.sessionId },
           data: {
-            status: result.status === "stopped" ? "completed" : "failed",
-            result: result.structured_output ? JSON.parse(result.structured_output) as unknown as Prisma.InputJsonValue : undefined,
+            status: isDevinSessionComplete(result.status_enum) ? "finished" : "expired",
+            result: result.structured_output as Prisma.InputJsonValue,
             updatedAt: new Date(),
           },
         });

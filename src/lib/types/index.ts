@@ -53,11 +53,22 @@ export interface GitHubRepository {
 }
 
 // Devin API Types
+export type DevinStatusEnum = 
+  | "working" 
+  | "blocked" 
+  | "expired" 
+  | "finished" 
+  | "suspend_requested" 
+  | "suspend_requested_frontend" 
+  | "resume_requested" 
+  | "resume_requested_frontend" 
+  | "resumed";
+
 export interface DevinSessionResponse {
   session_id: string;
-  status: "running" | "blocked" | "stopped";
-  status_enum: "working" | "blocked" | "stopped";
-  structured_output?: string;
+  status: string; // Display label - more descriptive
+  status_enum: DevinStatusEnum; // Actual enum for logic
+  structured_output?: unknown; // Object containing the actual results
   error_message?: string;
 }
 
@@ -85,14 +96,13 @@ export interface DevinMessageRequest {
 }
 
 // Database Types
-export type SessionStatus = "running" | "completed" | "failed" | "stopped" | "blocked";
 export type SessionType = "analysis" | "resolution";
 
 export interface DatabaseSession {
   id: string;
   sessionId: string;
   type: SessionType;
-  status: SessionStatus;
+  status: DevinStatusEnum;
   result: unknown;
   confidenceScore?: number;
   createdAt: Date | string;
@@ -124,7 +134,7 @@ export interface IssueCardProps {
 }
 
 export interface StatusBadgeProps {
-  status: SessionStatus;
+  status: DevinStatusEnum;
   variant?: "default" | "compact";
 }
 

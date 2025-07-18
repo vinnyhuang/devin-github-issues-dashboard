@@ -4,12 +4,13 @@ import type {
   DevinResolutionResult,
   DevinCreateSessionRequest, 
   DevinMessageRequest,
-  GitHubIssue 
+  GitHubIssue,
+  DevinStatusEnum
 } from "./types";
 
 interface MockSession {
   sessionId: string;
-  status: "running" | "blocked" | "stopped";
+  status: DevinStatusEnum;
   result?: DevinAnalysisResult | DevinResolutionResult;
   startTime: number;
   processingTimeMs: number;
@@ -29,7 +30,7 @@ class MockDevinClient {
     
     const session: MockSession = {
       sessionId,
-      status: "running",
+      status: "working",
       startTime: Date.now(),
       processingTimeMs: processingTime,
     };
@@ -43,7 +44,7 @@ class MockDevinClient {
     
     return {
       session_id: sessionId,
-      status: "running",
+      status: "Working on analysis",
       status_enum: "working",
     };
   }
@@ -58,13 +59,14 @@ class MockDevinClient {
 
     const response: DevinSessionResponse = {
       session_id: sessionId,
-      status: session.status,
-      status_enum: session.status === "running" ? "working" : 
-                   session.status === "blocked" ? "blocked" : "stopped",
+      status: session.status === "working" ? "Working on analysis" :
+              session.status === "blocked" ? "Blocked waiting for input" :
+              session.status === "finished" ? "Analysis complete" : session.status,
+      status_enum: session.status,
     };
 
-    if (session.status === "stopped" && session.result) {
-      response.structured_output = JSON.stringify(session.result);
+    if (session.status === "finished" && session.result) {
+      response.structured_output = session.result;
     }
 
     return response;
@@ -101,7 +103,7 @@ class MockDevinClient {
     while (attempts < maxAttempts) {
       const session = await this.getSession(sessionId);
       
-      if (session.status === "stopped") {
+      if (session.status === "finished") {
         return session;
       }
       
@@ -139,7 +141,7 @@ class MockDevinClient {
     if (!session) return;
 
     console.log(`🎭 Mock: Completing session ${sessionId}`);
-    session.status = "stopped";
+    session.status = "finished";
     
     if (prompt.includes("Analyze this GitHub issue")) {
       session.result = this.generateMockAnalysisResult(prompt);
@@ -150,7 +152,7 @@ class MockDevinClient {
     }
     
     this.sessions.set(sessionId, session);
-    console.log(`🎭 Mock: Session ${sessionId} marked as stopped with results`);
+    console.log(`🎭 Mock: Session ${sessionId} marked as finished with results`);
   }
 
   private generateMockAnalysisResult(prompt: string): DevinAnalysisResult {
