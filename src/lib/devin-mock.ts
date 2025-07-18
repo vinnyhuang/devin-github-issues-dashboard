@@ -16,6 +16,7 @@ interface MockSession {
   startTime: number;
   messages: DevinMessage[];
   processingTimeMs: number;
+  type: "analysis" | "resolution"; // Track session type
 }
 
 class MockDevinClient {
@@ -30,12 +31,17 @@ class MockDevinClient {
     // Simulate different processing times based on complexity
     const processingTime = this.getProcessingTime(request.prompt);
     
+    // Determine session type from prompt
+    const sessionType = request.prompt.includes("Analyze this GitHub issue") ? "analysis" : "resolution";
+    console.log(`🎭 Mock: Creating ${sessionType} session for ${sessionId}`);
+    
     const session: MockSession = {
       sessionId,
       status: "working",
       startTime: Date.now(),
       processingTimeMs: processingTime,
       messages: [],
+      type: sessionType,
     };
     
     this.sessions.set(sessionId, session);
@@ -75,7 +81,20 @@ class MockDevinClient {
       messages: session.messages,
     };
 
-    if (session.status === "finished" && session.result) {
+    if (session.status === "finished") {
+      // Generate structured output on-the-fly if session is complete
+      if (!session.result) {
+        // Determine what type of session this was based on creation
+        // For now, we'll check if this was an analysis or resolution based on the session data
+        if (session.type === "analysis") {
+          session.result = this.generateMockAnalysisResult("Analyze this GitHub issue");
+          console.log(`🎭 Mock: Generated analysis result for ${sessionId}`);
+        } else if (session.type === "resolution") {
+          session.result = this.generateMockResolutionResult("Resolve this GitHub issue");
+          console.log(`🎭 Mock: Generated resolution result for ${sessionId}`);
+        }
+      }
+      
       response.structured_output = session.result;
     }
 
@@ -276,37 +295,37 @@ class MockDevinClient {
       return `${baseScope[type as keyof typeof baseScope] || "Standard development scope"}. ${complexityModifier[complexity as keyof typeof complexityModifier]}.`;
     };
 
+    const strategy = strategies[type][Math.floor(Math.random() * strategies[type].length)]!;
+    const scope = generateScopeAnalysis(type, complexity);
+    const confidenceScore = Math.round(confidence);
+    
+    // Generate reasoning in the expected format
+    const reasoning = `${confidenceScore > 80 ? 'High' : confidenceScore > 60 ? 'Medium' : 'Low'} confidence (${confidenceScore}) because: 1) The issue is clearly identified with specific symptoms, 2) The fix approach is well-defined and follows established patterns, 3) ${complexity === 'low' ? 'No complex architectural changes needed' : complexity === 'medium' ? 'Moderate changes with manageable complexity' : 'Complex changes requiring careful design'}. ${complexity.charAt(0).toUpperCase() + complexity.slice(1)} complexity because ${complexity === 'low' ? 'it involves straightforward modifications using standard patterns' : complexity === 'medium' ? 'it requires moderate refactoring with some integration considerations' : 'it involves significant architectural changes with multiple integration points'}. ${type === 'bug' ? 'The existing infrastructure supports the fix with minimal risk' : type === 'feature' ? 'New functionality can be added incrementally' : 'Implementation follows established project patterns'}.`;
+
     return {
       type,
+      strategy,
+      reasoning,
       complexity,
-      confidence_score: Math.round(confidence),
-      strategy: strategies[type][Math.floor(Math.random() * strategies[type].length)]!,
-      scope_analysis: generateScopeAnalysis(type, complexity),
-      reasoning: `Based on the issue analysis, this appears to be a ${type} with ${complexity} complexity. The confidence score reflects the clarity of requirements and estimated implementation difficulty.`
+      scope_analysis: scope,
+      confidence_score: confidenceScore
     };
   }
 
   private generateMockResolutionResult(prompt: string): DevinResolutionResult {
-    // Generate realistic mock results for resolution
+    // Generate realistic mock results for resolution in the expected format
     const summaries = [
-      "Successfully implemented the requested feature with comprehensive test coverage. The solution follows existing code patterns and maintains backward compatibility.",
-      "Fixed the identified bug by correcting the underlying logic error. Added regression tests to prevent similar issues in the future.",
-      "Updated documentation with clear examples and usage instructions. All links and references have been verified to work correctly.",
-      "Completed code refactoring to improve maintainability while preserving all existing functionality. Performance tests show no regression.",
-      "Implemented the enhancement with additional error handling and validation. The solution scales well with existing infrastructure."
+      "Successfully implemented continuous timer fix for the typing game. Added useEffect with 100ms setInterval to update game stats when active, ensuring timer updates independently of keypress events. Created comprehensive PR with detailed testing instructions. Implementation follows React best practices and resolves the reported timer synchronization issue.",
+      "Fixed the identified bug by implementing proper state management and event handling. Added comprehensive error handling and validation to prevent similar issues. Created detailed PR with step-by-step implementation notes and testing guidelines for reviewers.",
+      "Updated component architecture to support real-time updates with proper cleanup mechanisms. Implemented solution using standard React patterns with useEffect and custom hooks. Created PR with comprehensive documentation and backwards compatibility verification.",
+      "Completed feature implementation with full test coverage and performance optimization. The solution integrates seamlessly with existing codebase architecture. Created detailed PR with implementation overview and comprehensive testing instructions.",
+      "Implemented robust solution addressing the core issue while maintaining code quality standards. Added proper error boundaries and fallback mechanisms. Created comprehensive PR with detailed changelog and migration notes for reviewers."
     ];
 
     const hasGithubReference = prompt.includes("github.com");
     const prNumber = Math.floor(Math.random() * 999) + 1;
-    
-    // Extract repo info if available for realistic PR URL
-    let pullRequestUrl;
-    if (hasGithubReference) {
-      const repoMatch = /github\.com\/([^\/]+\/[^\/]+)/.exec(prompt);
-      if (repoMatch) {
-        pullRequestUrl = `https://github.com/${repoMatch[1]}/pull/${prNumber}`;
-      }
-    }
+
+    const pullRequestUrl = `https://github.com/vinnyhuang-devin-test/typio-kart/pull/${prNumber}`;
 
     return {
       summary: summaries[Math.floor(Math.random() * summaries.length)]!,
@@ -315,7 +334,7 @@ class MockDevinClient {
   }
 
   private generateAnalysisPrompt(issue: GitHubIssue): string {
-    return `You are an expert software engineer analyzing a GitHub issue. Your task is to thoroughly scope this issue, assign a confidence score for how successfully you could resolve it, and provide a structured assessment.
+    return `Analyze this GitHub issue. You are an expert software engineer analyzing a GitHub issue. Your task is to thoroughly scope this issue, assign a confidence score for how successfully you could resolve it, and provide a structured assessment.
 
 **Issue Details:**
 - Title: ${issue.title}
@@ -390,7 +409,7 @@ Please analyze this issue thoroughly and provide only the structured JSON respon
   private generateResolutionPrompt(issue: GitHubIssue, analysis: DevinAnalysisResult): string {
     const repoUrl = this.extractRepoUrl(issue.repository_url);
     
-    return `You are an expert software engineer resolving a GitHub issue. Implement a complete solution based on the previous analysis.
+    return `Resolve this GitHub issue based on the previous analysis. You are an expert software engineer resolving a GitHub issue. Implement a complete solution based on the previous analysis.
 
 **Issue Details:**
 - Title: ${issue.title}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { Card } from "@/components/ui";
 import { IssuesList } from "../issues/IssuesList";
 import { IssueDetailsPanel } from "../issues/IssueDetailsPanel";
@@ -16,6 +16,12 @@ export function Dashboard() {
   const [isConnected, setIsConnected] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<GitHubIssue | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // Prevent hydration mismatch by only showing environment-dependent content after client mount
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Data fetching hooks
   const { issues, isLoading: issuesLoading } = useIssues({
@@ -50,7 +56,7 @@ export function Dashboard() {
       <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="space-y-8">
           {/* Mock Mode Banner */}
-          {IS_DEVELOPMENT && USE_MOCK_DEVIN && (
+          {isClient && IS_DEVELOPMENT && USE_MOCK_DEVIN && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <div className="flex items-center">
                 <span className="text-yellow-400 text-xl mr-3">🎭</span>
