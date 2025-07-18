@@ -14,17 +14,34 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    createdBy   User   @relation(fields: [createdById], references: [id])
-    createdById String
-
-    @@index([name])
+model Issue {
+    id          String   @id @default(cuid())
+    githubId    BigInt   @unique  // GitHub IDs can be very large
+    number      Int      // Issue number (e.g., #123)
+    title       String
+    body        String?
+    url         String
+    state       String
+    labels      Json?    // Array of label objects
+    repository  String
+    sessions    DevinSession[]
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
 }
+
+model DevinSession {
+    id              String   @id @default(cuid())
+    sessionId       String   @unique  // Devin session ID
+    issueId         String
+    issue           Issue    @relation(fields: [issueId], references: [id])
+    type            String   // 'analysis' or 'resolution'
+    status          String   // 'running', 'completed', 'failed'
+    result          Json?    // Structured results from Devin
+    messages        String?  // Real-time message stream from Devin (stringified JSON)
+    createdAt       DateTime @default(now())
+    updatedAt       DateTime @updatedAt
+}
+
 
 // Necessary for Next auth
 model Account {
@@ -62,7 +79,6 @@ model User {
     image         String?
     accounts      Account[]
     sessions      Session[]
-    posts         Post[]
 }
 
 model VerificationToken {
