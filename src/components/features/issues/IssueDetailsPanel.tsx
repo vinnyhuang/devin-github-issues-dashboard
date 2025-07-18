@@ -38,7 +38,7 @@ export function IssueDetailsPanel({
   latestAnalysis,
   latestResolution,
   currentAnalysisSession,
-  currentResolutionSession: _currentResolutionSession,
+  currentResolutionSession,
   onAnalyzeIssue,
   onStartResolution,
   onRetryResolution,
@@ -126,6 +126,7 @@ export function IssueDetailsPanel({
             issue={issue}
             latestAnalysis={latestAnalysis as DatabaseSession}
             latestResolution={latestResolution as DatabaseSession}
+            currentResolutionSession={currentResolutionSession}
             onStartResolution={onStartResolution}
             isResolving={isResolving}
             errorMessage={errorMessage}

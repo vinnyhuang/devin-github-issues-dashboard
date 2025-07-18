@@ -15,8 +15,8 @@ export const DEMO_REPO_URL = "https://github.com/facebook/react";
 // Status Mappings
 export const STATUS_COLORS: Record<DevinStatusEnum, string> = {
   working: "bg-blue-100 text-blue-700",
-  blocked: "bg-yellow-100 text-yellow-700",
-  expired: "bg-red-100 text-red-700",
+  blocked: "bg-green-100 text-green-700",
+  expired: "bg-green-100 text-green-700",
   finished: "bg-green-100 text-green-700",
   suspend_requested: "bg-orange-100 text-orange-700",
   suspend_requested_frontend: "bg-orange-100 text-orange-700",
@@ -27,8 +27,8 @@ export const STATUS_COLORS: Record<DevinStatusEnum, string> = {
 
 export const STATUS_TEXT: Record<DevinStatusEnum, string> = {
   working: "Working",
-  blocked: "Blocked",
-  expired: "Expired",
+  blocked: "Finished",
+  expired: "Finished",
   finished: "Finished",
   suspend_requested: "Suspending",
   suspend_requested_frontend: "Suspending",

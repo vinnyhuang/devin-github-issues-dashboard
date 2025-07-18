@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, StatusBadge, LoadingSpinner } from "@/components/ui";
+import { Button, StatusBadge, LoadingSpinner, MessageStream } from "@/components/ui";
 import { isAnalysisResult, formatTimestamp, isDevinSessionComplete, isDevinSessionRunning } from "@/lib/utils";
 import { ISSUE_TYPE_CONFIG, COMPLEXITY_COLORS, getConfidenceLevel } from "@/constants";
 import type { GitHubIssue, DatabaseSession, DevinSessionResponse } from "@/lib/types";
@@ -65,6 +65,14 @@ export function AnalyzeTab({
           size="md" 
           text="Devin is examining the issue and generating insights" 
         />
+
+        {/* Real-time message stream */}
+        {currentSession?.messages && currentSession.messages.length > 0 && (
+          <MessageStream 
+            messages={currentSession.messages}
+            className="mt-4"
+          />
+        )}
 
         {/* Show previous analysis results if available */}
         {latestAnalysis?.result && isDevinSessionComplete(latestAnalysis.status) && isAnalysisResult(latestAnalysis.result) ? (

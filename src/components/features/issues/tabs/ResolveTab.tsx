@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { Button, StatusBadge, LoadingSpinner } from "@/components/ui";
+import { Button, StatusBadge, LoadingSpinner, MessageStream } from "@/components/ui";
 import { isAnalysisResult, isResolutionResult, formatTimestamp, isDevinSessionComplete, isDevinSessionRunning, generateResolutionPromptTemplate } from "@/lib/utils";
 import { getConfidenceLevel } from "@/constants";
 import type { 
   DatabaseSession, 
   DevinAnalysisResult,
+  DevinSessionResponse,
   GitHubIssue
 } from "@/lib/types";
 
@@ -14,6 +15,7 @@ interface ResolveTabProps {
   issue: GitHubIssue;
   latestAnalysis?: DatabaseSession;
   latestResolution?: DatabaseSession;
+  currentResolutionSession?: DevinSessionResponse;
   onStartResolution: (analysisResult: DevinAnalysisResult) => Promise<void>;
   isResolving: boolean;
   errorMessage?: string | null;
@@ -24,6 +26,7 @@ export function ResolveTab({
   issue,
   latestAnalysis,
   latestResolution,
+  currentResolutionSession,
   onStartResolution,
   isResolving,
   errorMessage,
@@ -76,10 +79,19 @@ export function ResolveTab({
         </div>
 
         {isDevinSessionRunning(latestResolution.status) ? (
-          <LoadingSpinner 
-            size="md" 
-            text="Devin is working on resolving this issue" 
-          />
+          <div className="space-y-4">
+            <LoadingSpinner 
+              size="md" 
+              text="Devin is working on resolving this issue" 
+            />
+
+            {/* Real-time message stream */}
+            {currentResolutionSession?.messages && currentResolutionSession.messages.length > 0 && (
+              <MessageStream 
+                messages={currentResolutionSession.messages}
+              />
+            )}
+          </div>
         ) : latestResolution.result && isDevinSessionComplete(latestResolution.status) && isResolutionResult(latestResolution.result) ? (
           <div className="space-y-4">
             <div>

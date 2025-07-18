@@ -67,12 +67,7 @@ export function isDevinSessionRunning(statusEnum: DevinStatusEnum | null | undef
 
 export function isDevinSessionComplete(statusEnum: DevinStatusEnum | null | undefined): boolean {
   if (!statusEnum) return false;
-  return ["finished", "expired"].includes(statusEnum);
-}
-
-export function isDevinSessionBlocked(statusEnum: DevinStatusEnum | null | undefined): boolean {
-  if (!statusEnum) return false;
-  return statusEnum === "blocked";
+  return ["finished", "expired", "blocked"].includes(statusEnum);
 }
 
 // Error handling utilities

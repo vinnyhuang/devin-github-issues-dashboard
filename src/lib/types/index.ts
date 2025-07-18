@@ -64,12 +64,19 @@ export type DevinStatusEnum =
   | "resume_requested_frontend" 
   | "resumed";
 
+export interface DevinMessage {
+  timestamp: Date;
+  type: string;
+  message: string;
+}
+
 export interface DevinSessionResponse {
   session_id: string;
   status: string; // Display label - more descriptive
   status_enum: DevinStatusEnum; // Actual enum for logic
   structured_output?: unknown; // Object containing the actual results
   error_message?: string;
+  messages?: DevinMessage[]; // Real-time message stream
 }
 
 export interface DevinAnalysisResult {
@@ -104,6 +111,7 @@ export interface DatabaseSession {
   type: SessionType;
   status: DevinStatusEnum;
   result: unknown;
+  messages?: string; // Stringified JSON of DevinMessage[]
   confidenceScore?: number;
   createdAt: Date | string;
   updatedAt: Date | string;

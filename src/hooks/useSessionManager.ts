@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { api } from "@/trpc/react";
 import { isDevinSessionRunning } from "@/lib/utils";
-import type { GitHubIssue, DatabaseSession, DevinAnalysisResult, DevinStatusEnum } from "@/lib/types";
+import type { GitHubIssue, DatabaseSession, DevinAnalysisResult, DevinStatusEnum, DevinMessage } from "@/lib/types";
 
 // Database session with included issue data
 interface DatabaseSessionWithIssue extends Omit<DatabaseSession, 'status'> {
@@ -246,6 +246,17 @@ export function useSessionManager({ issue, owner, repo }: UseSessionManagerProps
     }
   }, [latestAnalysis, startResolution]);
   
+  // Helper function to parse database messages
+  const parseMessages = (messages?: string): DevinMessage[] => {
+    if (!messages) return [];
+    try {
+      return JSON.parse(messages) as DevinMessage[];
+    } catch (error) {
+      console.error('Error parsing messages:', error);
+      return [];
+    }
+  };
+
   // Return actual polled session data when available, fallback to database data
   const currentAnalysisSession = analysisSessionData ?? (
     latestAnalysis && isDevinSessionRunning(latestAnalysis.status) 
@@ -253,7 +264,8 @@ export function useSessionManager({ issue, owner, repo }: UseSessionManagerProps
           session_id: latestAnalysis.sessionId, 
           status_enum: latestAnalysis.status, 
           status: latestAnalysis.status,
-          structured_output: latestAnalysis.result
+          structured_output: latestAnalysis.result,
+          messages: parseMessages(latestAnalysis.messages)
         }
       : undefined
   );
@@ -264,7 +276,8 @@ export function useSessionManager({ issue, owner, repo }: UseSessionManagerProps
           session_id: latestResolution.sessionId, 
           status_enum: latestResolution.status, 
           status: latestResolution.status,
-          structured_output: latestResolution.result
+          structured_output: latestResolution.result,
+          messages: parseMessages(latestResolution.messages)
         }
       : undefined
   );

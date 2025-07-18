@@ -5,7 +5,8 @@ import type {
   DevinCreateSessionRequest, 
   DevinMessageRequest,
   GitHubIssue,
-  DevinStatusEnum
+  DevinStatusEnum,
+  DevinMessage
 } from "./types";
 
 interface MockSession {
@@ -13,6 +14,7 @@ interface MockSession {
   status: DevinStatusEnum;
   result?: DevinAnalysisResult | DevinResolutionResult;
   startTime: number;
+  messages: DevinMessage[];
   processingTimeMs: number;
 }
 
@@ -33,9 +35,16 @@ class MockDevinClient {
       status: "working",
       startTime: Date.now(),
       processingTimeMs: processingTime,
+      messages: [],
     };
     
     this.sessions.set(sessionId, session);
+    
+    // Add initial message
+    this.addMessage(sessionId, "user_message", "Session started - analyzing request");
+    
+    // Schedule progressive messages during processing
+    this.scheduleProgressMessages(sessionId, request.prompt, processingTime);
     
     // Schedule completion
     setTimeout(() => {
@@ -63,6 +72,7 @@ class MockDevinClient {
               session.status === "blocked" ? "Blocked waiting for input" :
               session.status === "finished" ? "Analysis complete" : session.status,
       status_enum: session.status,
+      messages: session.messages,
     };
 
     if (session.status === "finished" && session.result) {
@@ -153,6 +163,9 @@ class MockDevinClient {
     
     this.sessions.set(sessionId, session);
     console.log(`🎭 Mock: Session ${sessionId} marked as finished with results`);
+    
+    // Add completion message
+    this.addMessage(sessionId, "user_message", "Session completed successfully");
   }
 
   private generateMockAnalysisResult(prompt: string): DevinAnalysisResult {
@@ -480,6 +493,48 @@ Implement the solution step by step, then provide only the structured JSON respo
       typeof r.summary === "string" &&
       (r.pull_request_url === undefined || typeof r.pull_request_url === "string")
     );
+  }
+
+  private addMessage(sessionId: string, type: string, message: string): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+
+    session.messages.push({
+      timestamp: new Date(),
+      type,
+      message,
+    });
+
+    this.sessions.set(sessionId, session);
+  }
+
+  private scheduleProgressMessages(sessionId: string, prompt: string, totalTime: number): void {
+    const isAnalysis = prompt.includes("Analyze this GitHub issue");
+    const isResolution = prompt.includes("Resolve this GitHub issue");
+
+    if (isAnalysis) {
+      // Analysis progress messages
+      setTimeout(() => this.addMessage(sessionId, "devin_message", "Examining issue details and context"), totalTime * 0.1);
+      setTimeout(() => this.addMessage(sessionId, "devin_message", "Analyzing code patterns and potential solutions"), totalTime * 0.3);
+      setTimeout(() => this.addMessage(sessionId, "devin_message", "Calculating confidence score based on complexity"), totalTime * 0.6);
+      setTimeout(() => this.addMessage(sessionId, "devin_message", "Generating strategy and recommendations"), totalTime * 0.8);
+      setTimeout(() => this.addMessage(sessionId, "devin_message", "Finalizing analysis results"), totalTime * 0.95);
+    } else if (isResolution) {
+      // Resolution progress messages
+      setTimeout(() => this.addMessage(sessionId, "devin_message", "Setting up development environment"), totalTime * 0.05);
+      setTimeout(() => this.addMessage(sessionId, "devin_message", "Cloning repository and analyzing codebase"), totalTime * 0.15);
+      setTimeout(() => this.addMessage(sessionId, "devin_message", "Identifying files and components to modify"), totalTime * 0.25);
+      setTimeout(() => this.addMessage(sessionId, "devin_message", "Implementing solution based on analysis"), totalTime * 0.45);
+      setTimeout(() => this.addMessage(sessionId, "devin_message", "Writing tests for the implemented changes"), totalTime * 0.65);
+      setTimeout(() => this.addMessage(sessionId, "devin_message", "Running tests and verifying solution"), totalTime * 0.8);
+      setTimeout(() => this.addMessage(sessionId, "devin_message", "Creating pull request with changes"), totalTime * 0.9);
+      setTimeout(() => this.addMessage(sessionId, "devin_message", "Finalizing documentation and commit message"), totalTime * 0.95);
+    } else {
+      // Generic progress messages
+      setTimeout(() => this.addMessage(sessionId, "devin_message", "Processing request"), totalTime * 0.2);
+      setTimeout(() => this.addMessage(sessionId, "devin_message", "Analyzing requirements"), totalTime * 0.5);
+      setTimeout(() => this.addMessage(sessionId, "devin_message", "Generating response"), totalTime * 0.8);
+    }
   }
 }
 

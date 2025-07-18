@@ -50,7 +50,7 @@ export function IssuesList({
   }
 
   return (
-    <Card>
+    <Card className="max-h-[700px]">
       <CardHeader>
         <CardTitle>
           Repository Issues ({issues.length})

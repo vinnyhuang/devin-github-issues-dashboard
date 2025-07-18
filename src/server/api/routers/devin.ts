@@ -58,6 +58,7 @@ export const devinRouter = createTRPCRouter({
             issueId: issue.id,
             type: "analysis",
             status: "working",
+            messages: "[]", // Initialize with empty messages array (stringified)
           },
         });
 
@@ -131,6 +132,7 @@ export const devinRouter = createTRPCRouter({
           data: {
             status: sessionStatus,
             result: result as Prisma.InputJsonValue,
+            messages: devinSession.messages ? JSON.stringify(devinSession.messages) : undefined,
             confidenceScore,
             updatedAt: new Date(),
           },
@@ -225,6 +227,7 @@ export const devinRouter = createTRPCRouter({
             issueId: analysisSession.issue.id,
             type: "resolution",
             status: "working",
+            messages: "[]", // Initialize with empty messages array (stringified)
           },
         });
 
