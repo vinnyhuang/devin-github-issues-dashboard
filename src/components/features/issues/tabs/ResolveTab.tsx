@@ -2,8 +2,9 @@
 
 import React, { useState } from "react";
 import { Button, StatusBadge, LoadingSpinner, MessageStream } from "@/components/ui";
-import { isAnalysisResult, isResolutionResult, formatTimestamp, isDevinSessionComplete, isDevinSessionRunning, generateResolutionPromptTemplate } from "@/lib/utils";
+import { isAnalysisResult, isResolutionResult, formatTimestamp, isDevinSessionComplete, isDevinSessionRunning } from "@/lib/utils";
 import { getConfidenceLevel } from "@/constants";
+import { CustomizePromptSection } from "./CustomizePromptSection";
 import type { 
   DatabaseSession, 
   DevinAnalysisResult,
@@ -141,6 +142,20 @@ export function ResolveTab({
         ) : null}
 
         <div className="pt-4 border-t">
+          {/* Customize Prompt Section for Re-resolve */}
+          <div className="mb-4">
+            <CustomizePromptSection
+              issue={issue}
+              analysisResult={latestAnalysis.result as DevinAnalysisResult}
+              customizePrompt={customizePrompt}
+              customPrompt={customPrompt}
+              onCustomizePromptChange={setCustomizePrompt}
+              onCustomPromptChange={setCustomPrompt}
+              checkboxId="customizeReResolvePrompt"
+              textareaId="customReResolvePrompt"
+            />
+          </div>
+
           <div className="flex gap-3">
             <Button
               variant="primary"
@@ -202,43 +217,16 @@ export function ResolveTab({
 
         {/* Customize Prompt Section */}
         <div className="space-y-4">
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="customizePrompt"
-              checked={customizePrompt}
-              onChange={(e) => {
-                const isChecked = e.target.checked;
-                setCustomizePrompt(isChecked);
-                // Pre-populate with template when checkbox is checked
-                if (isChecked && latestAnalysis?.result && isAnalysisResult(latestAnalysis.result)) {
-                  setCustomPrompt(generateResolutionPromptTemplate(issue, latestAnalysis.result));
-                } else if (!isChecked) {
-                  setCustomPrompt("");
-                }
-              }}
-              className="mr-2"
-            />
-            <label htmlFor="customizePrompt" className="text-sm font-medium text-gray-700">
-              Customize Prompt
-            </label>
-          </div>
-
-          {customizePrompt && (
-            <div>
-              <label htmlFor="customPrompt" className="block text-sm font-medium text-gray-700 mb-2">
-                Resolution Prompt:
-              </label>
-              <textarea
-                id="customPrompt"
-                value={customPrompt}
-                onChange={(e) => setCustomPrompt(e.target.value)}
-                rows={12}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
-                placeholder="Enter custom resolution prompt..."
-              />
-            </div>
-          )}
+          <CustomizePromptSection
+            issue={issue}
+            analysisResult={analysisResult}
+            customizePrompt={customizePrompt}
+            customPrompt={customPrompt}
+            onCustomizePromptChange={setCustomizePrompt}
+            onCustomPromptChange={setCustomPrompt}
+            checkboxId="customizePrompt"
+            textareaId="customPrompt"
+          />
 
           {errorMessage && (
             <div className="bg-red-50 border border-red-200 rounded p-3">
