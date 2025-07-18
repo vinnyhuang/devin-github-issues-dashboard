@@ -112,7 +112,6 @@ export interface DatabaseSession {
   status: DevinStatusEnum;
   result: unknown;
   messages?: string; // Stringified JSON of DevinMessage[]
-  confidenceScore?: number;
   createdAt: Date | string;
   updatedAt: Date | string;
   issue: {

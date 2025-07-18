@@ -38,7 +38,6 @@ model DevinSession {
     status          String   // 'running', 'completed', 'failed'
     result          Json?    // Structured results from Devin
     messages        String?  // Real-time message stream from Devin (stringified JSON)
-    confidenceScore Float?
     createdAt       DateTime @default(now())
     updatedAt       DateTime @updatedAt
 }

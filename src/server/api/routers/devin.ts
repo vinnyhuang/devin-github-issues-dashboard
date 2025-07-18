@@ -99,7 +99,6 @@ export const devinRouter = createTRPCRouter({
         }
 
         let result = null;
-        let confidenceScore = null;
 
         // If session is complete, process the structured output
         if (devinSession.status_enum && isDevinSessionComplete(devinSession.status_enum) && devinSession.structured_output) {
@@ -112,7 +111,6 @@ export const devinRouter = createTRPCRouter({
           if (devinClient.isValidAnalysisResult(structuredResult)) {
             console.log(`✅ Valid analysis result found for ${input.sessionId}`);
             result = structuredResult;
-            confidenceScore = structuredResult.confidence_score;
           } else if (devinClient.isValidResolutionResult(structuredResult)) {
             console.log(`✅ Valid resolution result found for ${input.sessionId}`);
             result = structuredResult;
@@ -133,7 +131,6 @@ export const devinRouter = createTRPCRouter({
             status: sessionStatus,
             result: result as Prisma.InputJsonValue,
             messages: devinSession.messages ? JSON.stringify(devinSession.messages) : undefined,
-            confidenceScore,
             updatedAt: new Date(),
           },
         });
@@ -142,7 +139,6 @@ export const devinRouter = createTRPCRouter({
           ...devinSession,
           status_enum: sessionStatus, // Use the normalized status
           result,
-          confidenceScore,
           issue: dbSession.issue,
         };
 

@@ -24,7 +24,6 @@ CREATE TABLE "DevinSession" (
     "status" TEXT NOT NULL,
     "result" JSONB,
     "messages" TEXT,
-    "confidenceScore" DOUBLE PRECISION,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
