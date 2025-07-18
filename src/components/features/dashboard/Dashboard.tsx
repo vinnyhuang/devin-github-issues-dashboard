@@ -123,7 +123,6 @@ export function Dashboard() {
                   analyzingIssueId={sessionManager.analyzingIssueId}
                   resolvingIssueId={sessionManager.resolvingIssueId}
                   errorMessage={sessionManager.errorMessage}
-                  onRefreshSessions={sessionManager.refreshSessions}
                 />
               ) : (
                 <Card>

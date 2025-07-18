@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { api } from "@/trpc/react";
 import { isDevinSessionRunning } from "@/lib/utils";
 import type { GitHubIssue, DatabaseSession, DevinAnalysisResult, DevinStatusEnum } from "@/lib/types";
@@ -32,9 +32,6 @@ interface SessionManagerState {
   
   // Error states
   errorMessage?: string | null;
-  
-  // Current polling session ID
-  pollingSessionId?: string;
 }
 
 interface UseSessionManagerProps {
@@ -49,7 +46,7 @@ export function useSessionManager({ issue, owner, repo }: UseSessionManagerProps
     isResolving: false,
   });
   
-  // Fetch all sessions for the current issue
+  // Fetch all sessions for the current issue (only when needed, no polling)
   const { data: sessionsData, refetch: refetchSessions } = api.github.getSessions.useQuery(
     { 
       owner: owner ?? "", 
@@ -58,53 +55,115 @@ export function useSessionManager({ issue, owner, repo }: UseSessionManagerProps
     },
     { 
       enabled: !!(owner && repo && issue?.number),
-      refetchInterval: false, // We'll handle refetching manually
+      refetchInterval: false, // No automatic polling - we refresh manually when needed
     }
   );
 
-  // Poll current session status
-  const { data: currentSessionData } = api.devin.getSessionStatus.useQuery(
-    { sessionId: state.pollingSessionId ?? "" },
-    {
-      enabled: !!state.pollingSessionId,
-      refetchInterval: 3000, // Poll every 3 seconds
-      retry: 3,
-    }
-  );
-  
   // Mutations
   const analyzeIssueMutation = api.devin.analyzeIssue.useMutation();
   const resolveIssueMutation = api.devin.resolveIssue.useMutation();
   
-  // Process sessions data
-  const sessions = (sessionsData as DatabaseSessionWithIssue[]) ?? [];
-  const analysisSessions = sessions.filter(s => s.type === "analysis");
-  const resolutionSessions = sessions.filter(s => s.type === "resolution");
-  const latestAnalysis = analysisSessions[0];
-  const latestResolution = resolutionSessions[0];
+  // Process sessions data with memoization to prevent re-renders
+  const processedSessionsData = useMemo(() => {
+    const sessions = (sessionsData as DatabaseSessionWithIssue[]) ?? [];
+    const analysisSessions = sessions.filter(s => s.type === "analysis");
+    const resolutionSessions = sessions.filter(s => s.type === "resolution");
+    const latestAnalysis = analysisSessions[0];
+    const latestResolution = resolutionSessions[0];
+    
+    // Get running sessions and their IDs
+    const runningSessions = sessions.filter(s => isDevinSessionRunning(s.status));
+    const hasRunningAnalysis = analysisSessions.some(s => isDevinSessionRunning(s.status));
+    const hasRunningResolution = resolutionSessions.some(s => isDevinSessionRunning(s.status));
+    
+    return {
+      sessions,
+      analysisSessions,
+      resolutionSessions,
+      latestAnalysis,
+      latestResolution,
+      runningSessions,
+      hasRunningAnalysis,
+      hasRunningResolution,
+    };
+  }, [sessionsData]);
   
-  // Handle session status updates
+  const { 
+    sessions, 
+    latestAnalysis, 
+    latestResolution,
+    hasRunningAnalysis,
+    hasRunningResolution
+  } = processedSessionsData;
+  
+  // Get session IDs for polling (maintain up to 2 sessions: latest analysis and resolution)
+  const latestAnalysisSessionId = latestAnalysis && isDevinSessionRunning(latestAnalysis.status) 
+    ? latestAnalysis.sessionId : undefined;
+  const latestResolutionSessionId = latestResolution && isDevinSessionRunning(latestResolution.status) 
+    ? latestResolution.sessionId : undefined;
+  
+  // Poll ONLY unfinished sessions via Devin API (not the sessions list)
+  const { data: analysisSessionData } = api.devin.getSessionStatus.useQuery(
+    { sessionId: latestAnalysisSessionId ?? "" },
+    {
+      enabled: !!latestAnalysisSessionId,
+      refetchInterval: 3000, // Poll every 3 seconds for session completion
+      retry: 3,
+    }
+  );
+  
+  const { data: resolutionSessionData } = api.devin.getSessionStatus.useQuery(
+    { sessionId: latestResolutionSessionId ?? "" },
+    {
+      enabled: !!latestResolutionSessionId,
+      refetchInterval: 3000, // Poll every 3 seconds for session completion
+      retry: 3,
+    }
+  );
+  
+  // When polled sessions complete, refresh the sessions list once to update database
   useEffect(() => {
-    if (currentSessionData && state.pollingSessionId) {
-      // Check if session is complete
-      if (currentSessionData.status_enum && !isDevinSessionRunning(currentSessionData.status_enum)) {
-        console.log(`✅ Session ${state.pollingSessionId} completed with status: ${currentSessionData.status_enum}`);
-        
-        // Stop polling by clearing the session ID and update loading states
-        setState(prev => ({ 
-          ...prev, 
-          pollingSessionId: undefined,
-          isAnalyzing: false,
-          isResolving: false,
-          analyzingIssueId: undefined,
-          resolvingIssueId: undefined
-        }));
-        
-        // Refresh sessions data to get updated database state
-        void refetchSessions();
+    const completedSessions: string[] = [];
+    
+    // Check if analysis session completed
+    if (analysisSessionData && latestAnalysisSessionId) {
+      if (analysisSessionData.status_enum && !isDevinSessionRunning(analysisSessionData.status_enum)) {
+        console.log(`✅ Analysis session ${latestAnalysisSessionId} completed with status: ${analysisSessionData.status_enum}`);
+        completedSessions.push(latestAnalysisSessionId);
       }
     }
-  }, [currentSessionData, state.pollingSessionId, refetchSessions]);
+    
+    // Check if resolution session completed
+    if (resolutionSessionData && latestResolutionSessionId) {
+      if (resolutionSessionData.status_enum && !isDevinSessionRunning(resolutionSessionData.status_enum)) {
+        console.log(`✅ Resolution session ${latestResolutionSessionId} completed with status: ${resolutionSessionData.status_enum}`);
+        completedSessions.push(latestResolutionSessionId);
+      }
+    }
+    
+    // Refresh sessions list once when any session completes (no continuous polling)
+    if (completedSessions.length > 0) {
+      console.log(`🔄 Refreshing sessions data due to completed sessions: ${completedSessions.join(', ')}`);
+      void refetchSessions();
+    }
+  }, [
+    analysisSessionData?.status_enum,
+    resolutionSessionData?.status_enum,
+    latestAnalysisSessionId,
+    latestResolutionSessionId,
+    analysisSessionData,
+    resolutionSessionData,
+    refetchSessions
+  ]);
+  
+  // Update loading states based on running sessions
+  useEffect(() => {
+    setState(prev => ({
+      ...prev,
+      isAnalyzing: prev.isAnalyzing || hasRunningAnalysis,
+      isResolving: prev.isResolving || hasRunningResolution,
+    }));
+  }, [hasRunningAnalysis, hasRunningResolution]);
   
   // Start analysis
   const startAnalysis = useCallback(async () => {
@@ -128,12 +187,6 @@ export function useSessionManager({ issue, owner, repo }: UseSessionManagerProps
       
       // Refresh sessions to get the new database entry
       await refetchSessions();
-      
-          // Start polling the new session
-      setState(prev => ({ 
-        ...prev, 
-        pollingSessionId: result.sessionId
-      }));
       
     } catch (error) {
       console.error("❌ Error starting analysis:", error);
@@ -168,12 +221,6 @@ export function useSessionManager({ issue, owner, repo }: UseSessionManagerProps
       // Refresh sessions to get the new database entry
       await refetchSessions();
       
-      // Start polling the new session
-      setState(prev => ({ 
-        ...prev, 
-        pollingSessionId: result.sessionId
-      }));
-      
     } catch (error) {
       console.error("❌ Error starting resolution:", error);
       setState(prev => ({ 
@@ -199,22 +246,40 @@ export function useSessionManager({ issue, owner, repo }: UseSessionManagerProps
     }
   }, [latestAnalysis, startResolution]);
   
-  // Manual refresh
-  const refreshSessions = useCallback(async () => {
-    await refetchSessions();
-  }, [refetchSessions]);
+  // Return actual polled session data when available, fallback to database data
+  const currentAnalysisSession = analysisSessionData ?? (
+    latestAnalysis && isDevinSessionRunning(latestAnalysis.status) 
+      ? { 
+          session_id: latestAnalysis.sessionId, 
+          status_enum: latestAnalysis.status, 
+          status: latestAnalysis.status,
+          structured_output: latestAnalysis.result
+        }
+      : undefined
+  );
+  
+  const currentResolutionSession = resolutionSessionData ?? (
+    latestResolution && isDevinSessionRunning(latestResolution.status)
+      ? { 
+          session_id: latestResolution.sessionId, 
+          status_enum: latestResolution.status, 
+          status: latestResolution.status,
+          structured_output: latestResolution.result
+        }
+      : undefined
+  );
   
   return {
     // Data
     sessions,
     latestAnalysis,
     latestResolution,
-    currentAnalysisSession: currentSessionData,
-    currentResolutionSession: currentSessionData,
+    currentAnalysisSession,
+    currentResolutionSession,
     
-    // Loading states
-    isAnalyzing: state.isAnalyzing,
-    isResolving: state.isResolving,
+    // Loading states - clear when no sessions are running
+    isAnalyzing: state.isAnalyzing && hasRunningAnalysis,
+    isResolving: state.isResolving && hasRunningResolution,
     analyzingIssueId: state.analyzingIssueId,
     resolvingIssueId: state.resolvingIssueId,
     
@@ -225,6 +290,5 @@ export function useSessionManager({ issue, owner, repo }: UseSessionManagerProps
     startAnalysis,
     startResolution,
     retryResolution,
-    refreshSessions,
   };
 }

@@ -11,7 +11,6 @@ interface AnalyzeTabProps {
   isAnalyzing: boolean;
   analyzingIssueId?: number;
   onAnalyzeIssue: (issue: GitHubIssue) => void;
-  onRefreshSessions?: () => void;
   onSwitchToResolve?: () => void;
 }
 
@@ -22,7 +21,6 @@ export function AnalyzeTab({
   isAnalyzing,
   analyzingIssueId,
   onAnalyzeIssue,
-  onRefreshSessions,
   onSwitchToResolve
 }: AnalyzeTabProps) {
   const hasCurrentRunningSession = currentSession?.status_enum ? isDevinSessionRunning(currentSession.status_enum) : false;
@@ -56,18 +54,7 @@ export function AnalyzeTab({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h4 className="font-medium text-gray-900">Current Analysis</h4>
-          <div className="flex items-center gap-2">
-            <StatusBadge status="working" />
-            {onRefreshSessions && (
-              <button
-                onClick={onRefreshSessions}
-                className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                title="Refresh status"
-              >
-                🔄
-              </button>
-            )}
-          </div>
+          <StatusBadge status="working" />
         </div>
 
         <div className="text-sm text-gray-600 mb-4">
@@ -101,18 +88,7 @@ export function AnalyzeTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h4 className="font-medium text-gray-900">Latest Analysis</h4>
-        <div className="flex items-center gap-2">
-          <StatusBadge status={latestAnalysis.status} />
-          {onRefreshSessions && (
-            <button
-              onClick={onRefreshSessions}
-              className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-              title="Refresh status"
-            >
-              🔄
-            </button>
-          )}
-        </div>
+        <StatusBadge status={latestAnalysis.status} />
       </div>
 
       <div className="text-sm text-gray-600 mb-4">

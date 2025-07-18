@@ -30,7 +30,6 @@ interface IssueDetailsPanelProps {
   analyzingIssueId?: number;
   resolvingIssueId?: number;
   errorMessage?: string | null;
-  onRefreshSessions?: () => void;
 }
 
 export function IssueDetailsPanel({
@@ -47,8 +46,7 @@ export function IssueDetailsPanel({
   isResolving,
   analyzingIssueId,
   resolvingIssueId: _resolvingIssueId,
-  errorMessage,
-  onRefreshSessions
+  errorMessage
 }: IssueDetailsPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>("analyze");
 
@@ -119,7 +117,6 @@ export function IssueDetailsPanel({
             isAnalyzing={isAnalyzing}
             analyzingIssueId={analyzingIssueId}
             onAnalyzeIssue={onAnalyzeIssue}
-            onRefreshSessions={onRefreshSessions}
             onSwitchToResolve={() => setActiveTab("resolve")}
           />
         )}
